@@ -7,7 +7,6 @@ import (
 	"net/url"
 	"path"
 	"strings"
-	"time"
 
 	"github.com/Walker-PI/gateway-admin/constdef"
 	"github.com/Walker-PI/gateway-admin/internal/dal"
@@ -183,9 +182,10 @@ func (h *createAPIHandler) Process() (err error) {
 		TargetTimeout: h.Params.TargetTimeout,
 		MaxQps:        h.Params.MaxQps,
 		Auth:          h.Params.Auth,
-		CreatedTime:   time.Now(),
-		ModifiedTime:  time.Now(),
-		Description:   h.Params.Description,
+		// CreatedTime:   time.Now(),
+		// ModifiedTime:  time.Now(),
+		Status:      1,
+		Description: h.Params.Description,
 	}
 	if h.Params.TargetMode == constdef.DefaultTargetMode {
 		apiConfig.TargetHost = h.TargetURL.Host
@@ -241,10 +241,10 @@ func (h *createAPIHandler) Process() (err error) {
 		Auth:              apiConfig.Auth,
 		IPWhiteList:       apiConfig.IPWhiteList,
 		IPBlackList:       apiConfig.IPBlackList,
-		CreatedTime:       apiConfig.CreatedTime,
-		ModifiedTime:      apiConfig.ModifiedTime,
-		Version:           1,
-		Description:       apiConfig.Description,
+		// CreatedTime:       apiConfig.CreatedTime,
+		// ModifiedTime:      apiConfig.ModifiedTime,
+		Version:     1,
+		Description: apiConfig.Description,
 	}
 
 	// Create record

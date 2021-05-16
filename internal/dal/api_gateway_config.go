@@ -26,7 +26,7 @@ type APIGatewayConfig struct {
 	IPBlackList       string    `gorm:"column:ip_black_list" json:"ip_black_list"`
 	CreatedTime       time.Time `gorm:"column:created_time" json:"created_time"`
 	ModifiedTime      time.Time `gorm:"column:modified_time" json:"modified_time"`
-	Deleted           int32     `gorm:"column:deleted" json:"deleted"`
+	Status            int32     `gorm:"column:status" json:"status"`
 	Description       string    `gorm:"column:description" json:"description"`
 }
 
@@ -43,6 +43,15 @@ func UpdateAPI(db *gorm.DB, id int64, apiConfig *APIGatewayConfig) error {
 	db = db.Debug().Model(APIGatewayConfig{}).Where("id = ?", id).Updates(apiConfig)
 	if db.Error != nil {
 		logger.Error("[UpdateAPI] update api failed: apiConfig=%+v, err=%v", apiConfig, db.Error)
+		return db.Error
+	}
+	return nil
+}
+
+func DeleteAPI(db *gorm.DB, id int64) error {
+	db = db.Debug().Where("id = ?", id).Delete(&APIGatewayConfig{})
+	if db.Error != nil {
+		logger.Error("[DeleteAPI] delete api failed: id=%v, err=%v", id, db.Error)
 		return db.Error
 	}
 	return nil

@@ -3,6 +3,7 @@ module github.com/Walker-PI/gateway-admin
 go 1.15
 
 require (
+	github.com/dgrijalva/jwt-go v3.2.0+incompatible // indirect
 	github.com/gin-contrib/zap v0.0.1
 	github.com/gin-gonic/gin v1.7.1
 	github.com/go-ini/ini v1.62.0

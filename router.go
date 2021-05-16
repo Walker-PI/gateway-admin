@@ -14,7 +14,9 @@ func registerRouter(r *gin.Engine) {
 	r.POST("/gateway-admin/create_api", resp.JSONOutPutWrapper(handler.CreateAPI))
 	r.POST("/gateway-admin/update_api", resp.JSONOutPutWrapper(handler.UpdateAPI))
 	r.GET("/gateway-admin/delete_api", resp.JSONOutPutWrapper(handler.DeleteAPI))
-	r.GET("/gateway-admin/get_api")
+	// r.GET("/gateway-admin/get_api")
+
+	r.GET("/gateway-admin/internal/get_token", resp.JSONOutPutWrapper(handler.GetToken))
 }
 
 func Ping(c *gin.Context) {
