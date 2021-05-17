@@ -27,7 +27,7 @@ type CreateAPIParams struct {
 	TargetServiceName string `form:"target_service_name" json:"target_service_name"`
 	TargetLb          string `form:"target_lb" json:"target_lb"`
 	TargetTimeout     int64  `form:"target_timeout" json:"target_timeout"`
-	MaxQps            int32  `form:"max_qps" json:"max_qps"`
+	MaxQPS            int32  `form:"max_qps" json:"max_qps"`
 	Auth              string `form:"auth" json:"auth"`
 	IPWhiteList       string `form:"ip_white_list" json:"ip_white_list"`
 	IPBlackList       string `form:"ip_black_list" json:"ip_black_list"`
@@ -182,7 +182,7 @@ func (h *createAPIHandler) Process() (err error) {
 		APIName:       h.Params.APIName,
 		TargetMode:    h.Params.TargetMode,
 		TargetTimeout: h.Params.TargetTimeout,
-		MaxQps:        h.Params.MaxQps,
+		MaxQPS:        h.Params.MaxQPS,
 		Auth:          h.Params.Auth,
 		// CreatedTime:   time.Now(),
 		// ModifiedTime:  time.Now(),
@@ -239,7 +239,7 @@ func (h *createAPIHandler) Process() (err error) {
 		TargetPath:        apiConfig.TargetPath,
 		TargetServiceName: apiConfig.TargetServiceName,
 		TargetLb:          apiConfig.TargetLb,
-		MaxQps:            apiConfig.MaxQps,
+		MaxQPS:            apiConfig.MaxQPS,
 		Auth:              apiConfig.Auth,
 		IPWhiteList:       apiConfig.IPWhiteList,
 		IPBlackList:       apiConfig.IPBlackList,

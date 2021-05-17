@@ -29,7 +29,7 @@ type UpdateAPIParams struct {
 	TargetServiceName string `form:"target_service_name" json:"target_service_name"`
 	TargetLb          string `form:"target_lb" json:"target_lb"`
 	TargetTimeout     int64  `form:"target_timeout" json:"target_timeout"`
-	MaxQps            int32  `form:"max_qps" json:"max_qps"`
+	MaxQPS            int32  `form:"max_qps" json:"max_qps"`
 	Auth              string `form:"auth" json:"auth"`
 	IPWhiteList       string `form:"ip_white_list" json:"ip_white_list"`
 	IPBlackList       string `form:"ip_black_list" json:"ip_black_list"`
@@ -170,8 +170,8 @@ func (h *updateAPIHandler) Process() (err error) {
 	if h.Params.APIName != "" {
 		apiConfig.APIName = h.Params.APIName
 	}
-	if h.Params.MaxQps != 0 {
-		apiConfig.MaxQps = h.Params.MaxQps
+	if h.Params.MaxQPS != 0 {
+		apiConfig.MaxQPS = h.Params.MaxQPS
 	}
 	if h.Params.Auth != "" {
 		apiConfig.Auth = h.Params.Auth
@@ -234,7 +234,7 @@ func (h *updateAPIHandler) Process() (err error) {
 		TargetPath:        apiConfig.TargetPath,
 		TargetServiceName: apiConfig.TargetServiceName,
 		TargetLb:          apiConfig.TargetLb,
-		MaxQps:            apiConfig.MaxQps,
+		MaxQPS:            apiConfig.MaxQPS,
 		Auth:              apiConfig.Auth,
 		IPWhiteList:       apiConfig.IPWhiteList,
 		IPBlackList:       apiConfig.IPBlackList,

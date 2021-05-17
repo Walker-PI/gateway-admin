@@ -55,8 +55,6 @@ func setLogConfig() {
 		zap.NewAtomicLevelAt(logLevel),
 	)
 
-	zap.NewProduction()
-
 	caller := zap.AddCaller() // 开启文件及行号
 	skip := zap.AddCallerSkip(1)
 	development := zap.Development()                   // 开启开发模式，堆栈跟踪

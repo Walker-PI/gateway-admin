@@ -20,7 +20,7 @@ type APIGatewayConfigHistory struct {
 	TargetPath        string    `gorm:"column:target_path" json:"target_path"`
 	TargetServiceName string    `gorm:"column:target_service_name" json:"target_service_name"`
 	TargetLb          string    `gorm:"column:target_lb" json:"target_lb"`
-	MaxQps            int32     `gorm:"column:max_qps" json:"max_qps"`
+	MaxQPS            int32     `gorm:"column:max_qps" json:"max_qps"`
 	Auth              string    `gorm:"column:auth" json:"auth"`
 	IPWhiteList       string    `gorm:"column:ip_white_list" json:"ip_white_list"`
 	IPBlackList       string    `gorm:"column:ip_black_list" json:"ip_black_list"`
