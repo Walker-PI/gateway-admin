@@ -25,6 +25,7 @@ type CreateAPIParams struct {
 	TargetMode        int32  `form:"target_mode" json:"target_mode" binding:"required"`
 	TargetURL         string `form:"target_url" json:"target_url"`
 	TargetServiceName string `form:"target_service_name" json:"target_service_name"`
+	TargetStripPrefix int32  `form:"target_strip_prefix" json:"target_strip_prefix"`
 	TargetLb          string `form:"target_lb" json:"target_lb"`
 	TargetTimeout     int64  `form:"target_timeout" json:"target_timeout"`
 	MaxQPS            int32  `form:"max_qps" json:"max_qps"`
@@ -177,13 +178,14 @@ func (h *createAPIHandler) CheckParams() (err error) {
 
 func (h *createAPIHandler) Process() (err error) {
 	apiConfig := &dal.APIGatewayConfig{
-		Pattern:       h.Params.Pattern,
-		Method:        h.Params.Method,
-		APIName:       h.Params.APIName,
-		TargetMode:    h.Params.TargetMode,
-		TargetTimeout: h.Params.TargetTimeout,
-		MaxQPS:        h.Params.MaxQPS,
-		Auth:          h.Params.Auth,
+		Pattern:           h.Params.Pattern,
+		Method:            h.Params.Method,
+		APIName:           h.Params.APIName,
+		TargetMode:        h.Params.TargetMode,
+		TargetTimeout:     h.Params.TargetTimeout,
+		TargetStripPrefix: h.Params.TargetStripPrefix,
+		MaxQPS:            h.Params.MaxQPS,
+		Auth:              h.Params.Auth,
 		// CreatedTime:   time.Now(),
 		// ModifiedTime:  time.Now(),
 		Status:      1,
@@ -238,6 +240,7 @@ func (h *createAPIHandler) Process() (err error) {
 		TargetScheme:      apiConfig.TargetScheme,
 		TargetPath:        apiConfig.TargetPath,
 		TargetServiceName: apiConfig.TargetServiceName,
+		TargetStripPrefix: apiConfig.TargetStripPrefix,
 		TargetLb:          apiConfig.TargetLb,
 		MaxQPS:            apiConfig.MaxQPS,
 		Auth:              apiConfig.Auth,

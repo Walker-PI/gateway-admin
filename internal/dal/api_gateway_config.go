@@ -18,6 +18,7 @@ type APIGatewayConfig struct {
 	TargetScheme      string    `gorm:"column:target_scheme" json:"target_scheme"`
 	TargetPath        string    `gorm:"column:target_path" json:"target_path"`
 	TargetServiceName string    `gorm:"column:target_service_name" json:"target_service_name"`
+	TargetStripPrefix int32     `gorm:"column:target_strip_prefix" json:"target_strip_prefix"`
 	TargetLb          string    `gorm:"column:target_lb" json:"target_lb"`
 	TargetTimeout     int64     `gorm:"column:target_timeout" json:"target_timeout"`
 	MaxQPS            int32     `gorm:"column:max_qps" json:"max_qps"`

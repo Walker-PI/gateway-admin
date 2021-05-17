@@ -27,6 +27,7 @@ type UpdateAPIParams struct {
 	TargetMode        int32  `form:"target_mode" json:"target_mode"`
 	TargetURL         string `form:"target_url" json:"target_url"`
 	TargetServiceName string `form:"target_service_name" json:"target_service_name"`
+	TargetStripPrefix int32  `form:"target_strip_prefix" json:"target_strip_prefix"`
 	TargetLb          string `form:"target_lb" json:"target_lb"`
 	TargetTimeout     int64  `form:"target_timeout" json:"target_timeout"`
 	MaxQPS            int32  `form:"max_qps" json:"max_qps"`
@@ -178,6 +179,9 @@ func (h *updateAPIHandler) Process() (err error) {
 	}
 	if h.Params.Description != "" {
 		apiConfig.Description = h.Params.Description
+	}
+	if h.Params.TargetStripPrefix > 0 {
+		apiConfig.TargetStripPrefix = h.Params.TargetStripPrefix
 	}
 	if h.Params.TargetMode == constdef.DefaultTargetMode {
 		apiConfig.TargetHost = h.TargetURL.Host
