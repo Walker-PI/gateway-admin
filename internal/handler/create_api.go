@@ -20,9 +20,9 @@ import (
 
 type CreateAPIParams struct {
 	Pattern           string `form:"pattern" json:"pattern" binding:"required"`
-	Method            string `form:"method" json:"method" binding:"method"`
-	APIName           string `form:"api_name" json:"api_name" binding:"api_name"`
-	TargetMode        int32  `form:"target_mode" json:"target_mode" binding:"target_mode"`
+	Method            string `form:"method" json:"method" binding:"required"`
+	APIName           string `form:"api_name" json:"api_name" binding:"required"`
+	TargetMode        int32  `form:"target_mode" json:"target_mode" binding:"required"`
 	TargetURL         string `form:"target_url" json:"target_url"`
 	TargetServiceName string `form:"target_service_name" json:"target_service_name"`
 	TargetLb          string `form:"target_lb" json:"target_lb"`
@@ -137,6 +137,7 @@ func (h *createAPIHandler) CheckParams() (err error) {
 			logger.Error("[createAPIHandler-checkParams] params-err: service_name=%v", h.Params.TargetServiceName)
 			return err
 		}
+		h.Params.TargetLb = strings.ToUpper(h.Params.TargetLb)
 		if h.Params.TargetLb == "" {
 			h.Params.TargetLb = constdef.RandLoadBalance
 		}
@@ -147,6 +148,7 @@ func (h *createAPIHandler) CheckParams() (err error) {
 		}
 	}
 
+	h.Params.Auth = strings.ToUpper(h.Params.Auth)
 	if h.Params.Auth == "" {
 		h.Params.Auth = constdef.KeyLess
 	}
@@ -241,10 +243,7 @@ func (h *createAPIHandler) Process() (err error) {
 		Auth:              apiConfig.Auth,
 		IPWhiteList:       apiConfig.IPWhiteList,
 		IPBlackList:       apiConfig.IPBlackList,
-		// CreatedTime:       apiConfig.CreatedTime,
-		// ModifiedTime:      apiConfig.ModifiedTime,
-		Version:     1,
-		Description: apiConfig.Description,
+		Description:       apiConfig.Description,
 	}
 
 	// Create record

@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/Walker-PI/gateway-admin/constdef"
 	"github.com/Walker-PI/gateway-admin/internal/dal"
@@ -19,7 +20,7 @@ import (
 )
 
 type UpdateAPIParams struct {
-	APIID             int64  `form:"api_id" json:"api_id" binding:"api_id"`
+	APIID             int64  `form:"api_id" json:"api_id" binding:"required"`
 	APIName           string `form:"api_name" json:"api_name"`
 	Pattern           string `form:"pattern" json:"pattern"`
 	Method            string `form:"method" json:"method"`
@@ -57,6 +58,12 @@ func UpdateAPI(c *gin.Context) (out *resp.JSONOutput) {
 	if err != nil {
 		logger.Error("[UpdateAPI] params-error: err=%v", err)
 		return resp.SampleJSON(c, resp.RespCodeParamsError, nil)
+	}
+
+	err = h.Process()
+	if err != nil {
+		logger.Error("[UpdateAPI] update api failed: err=%v", err)
+		return resp.SampleJSON(c, resp.RespDatabaseError, nil)
 	}
 
 	err = h.Notify()
@@ -106,6 +113,7 @@ func (h *updateAPIHandler) CheckParams() (err error) {
 				logger.Error("[updateAPIHandler-checkParams] params-err: service_name=%v", h.Params.TargetServiceName)
 				return err
 			}
+			h.Params.TargetLb = strings.ToUpper(h.Params.TargetLb)
 			if h.Params.TargetLb == "" {
 				h.Params.TargetLb = constdef.RandLoadBalance
 			}
@@ -117,6 +125,7 @@ func (h *updateAPIHandler) CheckParams() (err error) {
 		}
 	}
 
+	h.Params.Auth = strings.ToUpper(h.Params.Auth)
 	if h.Params.Auth != "" {
 		if !authMap[h.Params.Auth] {
 			err = errors.New("auth: auth type is invalid")
@@ -144,32 +153,44 @@ func (h *updateAPIHandler) CheckParams() (err error) {
 
 func (h *updateAPIHandler) Process() (err error) {
 
-	apiHistory, err := dal.GetAPIHistoryByApiID(storage.MysqlClient, h.Params.APIID)
+	apiConfig, err := dal.GetAPIConfigByID(storage.MysqlClient, h.Params.APIID)
 	if err != nil {
 		return err
 	}
-	if apiHistory == nil {
-		logger.Error("[updateAPIHandler-Process] api_id is invalid: api_id=%v", h.Params.APIID)
+	if apiConfig == nil {
+		logger.Warn("[updateAPIHandler-Process] api_id is invalid: api_id=%v", h.Params.APIID)
 		return fmt.Errorf("api_id is not exsit")
 	}
-
-	apiConfig := &dal.APIGatewayConfig{
-		Pattern:       h.Params.Pattern,
-		Method:        h.Params.Method,
-		APIName:       h.Params.APIName,
-		TargetMode:    h.Params.TargetMode,
-		TargetTimeout: h.Params.TargetTimeout,
-		MaxQps:        h.Params.MaxQps,
-		Auth:          h.Params.Auth,
-		Description:   h.Params.Description,
+	if h.Params.Pattern != "" {
+		apiConfig.Pattern = h.Params.Pattern
+	}
+	if h.Params.Method != "" {
+		apiConfig.Method = h.Params.Method
+	}
+	if h.Params.APIName != "" {
+		apiConfig.APIName = h.Params.APIName
+	}
+	if h.Params.MaxQps != 0 {
+		apiConfig.MaxQps = h.Params.MaxQps
+	}
+	if h.Params.Auth != "" {
+		apiConfig.Auth = h.Params.Auth
+	}
+	if h.Params.Description != "" {
+		apiConfig.Description = h.Params.Description
 	}
 	if h.Params.TargetMode == constdef.DefaultTargetMode {
 		apiConfig.TargetHost = h.TargetURL.Host
 		apiConfig.TargetScheme = h.TargetURL.Scheme
 		apiConfig.TargetPath = h.TargetURL.Path
+		apiConfig.TargetLb = ""
+		apiConfig.TargetServiceName = ""
 	} else if h.Params.TargetMode == constdef.ConsulTargetMode {
 		apiConfig.TargetLb = h.Params.TargetLb
 		apiConfig.TargetServiceName = h.Params.TargetServiceName
+		apiConfig.TargetHost = ""
+		apiConfig.TargetScheme = ""
+		apiConfig.TargetPath = ""
 	}
 	ipBlackList := make([]string, 0)
 	for _, ip := range h.IPBlackList {
@@ -185,6 +206,7 @@ func (h *updateAPIHandler) Process() (err error) {
 	if len(ipWhiteList) > 0 {
 		apiConfig.IPWhiteList = strings.Join(ipWhiteList, ",")
 	}
+	apiConfig.ModifiedTime = time.Time{}
 
 	// 开启数据库事务，只有下列操作全部通过，才往数据库里写
 	db := storage.MysqlClient.Begin()
@@ -216,9 +238,6 @@ func (h *updateAPIHandler) Process() (err error) {
 		Auth:              apiConfig.Auth,
 		IPWhiteList:       apiConfig.IPWhiteList,
 		IPBlackList:       apiConfig.IPBlackList,
-		CreatedTime:       apiConfig.CreatedTime,
-		ModifiedTime:      apiConfig.ModifiedTime,
-		Version:           apiHistory.Version + 1,
 		Description:       apiConfig.Description,
 	}
 
