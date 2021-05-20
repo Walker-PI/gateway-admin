@@ -211,6 +211,13 @@ func (h *createAPIHandler) Process() (err error) {
 		return
 	}
 
+	// 增加API配置id到redis集合
+	err = storage.RedisClient.SAdd(h.Ctx.Request.Context(), constdef.AllAPIConfigID, h.APIConfig.ID).Err()
+	if err != nil {
+		logger.Error("[createAPIHandler-Process] save api_id to redis set failed: err=%v", err)
+		return err
+	}
+
 	// APIConfig: Write to Redis
 	msgBytes, err := json.Marshal(h.APIConfig)
 	if err != nil {
@@ -223,13 +230,6 @@ func (h *createAPIHandler) Process() (err error) {
 		logger.Error("[createAPIHandler-Process] write to redis failed: err=%v", err)
 		return err
 	}
-
-	err = storage.RedisClient.SAdd(h.Ctx.Request.Context(), constdef.AllAPIConfigID, h.APIConfig.ID).Err()
-	if err != nil {
-		logger.Error("[createAPIHandler-Process] save api_id to redis set failed: err=%v", err)
-		return err
-	}
-
 	return
 }
 
