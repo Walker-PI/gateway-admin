@@ -1,12 +1,15 @@
 package handler
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"net/url"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/Walker-PI/gateway-admin/constdef"
 	"github.com/Walker-PI/gateway-admin/internal/dal"
@@ -65,11 +68,13 @@ var authMap = map[string]bool{
 }
 
 type createAPIHandler struct {
-	Ctx         *gin.Context
-	Params      CreateAPIParams
-	TargetURL   *url.URL
-	IPWhiteList []net.IP
-	IPBlackList []net.IP
+	Ctx              *gin.Context
+	Params           CreateAPIParams
+	TargetURL        *url.URL
+	IPWhiteList      []net.IP
+	IPBlackList      []net.IP
+	APIConfig        *dal.APIGatewayConfig
+	APIConfigHistory *dal.APIGatewayConfigHistory
 }
 
 func buildCreateAPIHandler(c *gin.Context) *createAPIHandler {
@@ -177,83 +182,54 @@ func (h *createAPIHandler) CheckParams() (err error) {
 }
 
 func (h *createAPIHandler) Process() (err error) {
-	apiConfig := &dal.APIGatewayConfig{
-		Pattern:           h.Params.Pattern,
-		Method:            h.Params.Method,
-		APIName:           h.Params.APIName,
-		TargetMode:        h.Params.TargetMode,
-		TargetTimeout:     h.Params.TargetTimeout,
-		TargetStripPrefix: h.Params.TargetStripPrefix,
-		MaxQPS:            h.Params.MaxQPS,
-		Auth:              h.Params.Auth,
-		// CreatedTime:   time.Now(),
-		// ModifiedTime:  time.Now(),
-		Status:      1,
-		Description: h.Params.Description,
-	}
-	if h.Params.TargetMode == constdef.DefaultTargetMode {
-		apiConfig.TargetHost = h.TargetURL.Host
-		apiConfig.TargetScheme = h.TargetURL.Scheme
-		apiConfig.TargetPath = h.TargetURL.Path
-	} else if h.Params.TargetMode == constdef.ConsulTargetMode {
-		apiConfig.TargetLb = h.Params.TargetLb
-		apiConfig.TargetServiceName = h.Params.TargetServiceName
-	}
-	ipBlackList := make([]string, 0)
-	for _, ip := range h.IPBlackList {
-		ipBlackList = append(ipBlackList, ip.To4().String())
-	}
-	if len(ipBlackList) > 0 {
-		apiConfig.IPBlackList = strings.Join(ipBlackList, ",")
-	}
-	ipWhiteList := make([]string, 0)
-	for _, ip := range h.IPWhiteList {
-		ipWhiteList = append(ipWhiteList, ip.To4().String())
-	}
-	if len(ipWhiteList) > 0 {
-		apiConfig.IPWhiteList = strings.Join(ipWhiteList, ",")
-	}
 
 	// 开启数据库事务，只有下列操作全部通过，才往数据库里写
 	db := storage.MysqlClient.Begin()
 	defer func() {
 		if err != nil {
+			logger.Error("[createAPIHandler-Process] create api failed: err=%v", err)
 			db.Rollback()
 		} else {
 			db.Commit()
+			logger.Info("[createAPIHandler-Process] create api succeed")
 		}
 	}()
 
-	// Create API
-	err = dal.CreateAPI(db, apiConfig)
+	// APIConfig: Write to Mysql
+	h.packAPIConfig()
+	err = dal.CreateAPI(db, h.APIConfig)
 	if err != nil {
+		logger.Error("[createAPIHandler-Process] write a api failed: err=%v", err)
 		return err
 	}
 
-	apiConfigHistory := &dal.APIGatewayConfigHistory{
-		APIID:             apiConfig.ID,
-		Pattern:           apiConfig.Pattern,
-		Method:            apiConfig.Method,
-		APIName:           apiConfig.APIName,
-		TargetMode:        apiConfig.TargetMode,
-		TargetHost:        apiConfig.TargetHost,
-		TargetScheme:      apiConfig.TargetScheme,
-		TargetPath:        apiConfig.TargetPath,
-		TargetServiceName: apiConfig.TargetServiceName,
-		TargetStripPrefix: apiConfig.TargetStripPrefix,
-		TargetLb:          apiConfig.TargetLb,
-		MaxQPS:            apiConfig.MaxQPS,
-		Auth:              apiConfig.Auth,
-		IPWhiteList:       apiConfig.IPWhiteList,
-		IPBlackList:       apiConfig.IPBlackList,
-		Description:       apiConfig.Description,
-	}
-
-	// Create record
-	err = dal.CreateAPIHistory(db, apiConfigHistory)
+	// APIConfigHistory: Write to Mysql
+	h.packAPIConfigHistory()
+	err = dal.CreateAPIHistory(db, h.APIConfigHistory)
 	if err != nil {
+		logger.Error("[createAPIHandler-Process] write a api history failed: err=%v", err)
 		return
 	}
+
+	// APIConfig: Write to Redis
+	msgBytes, err := json.Marshal(h.APIConfig)
+	if err != nil {
+		logger.Error("[createAPIHandler-Process] marshal failed: err=%v", err)
+		return err
+	}
+	key := fmt.Sprintf(constdef.APIConfigKeyFmt, h.APIConfig.ID)
+	err = storage.RedisClient.Set(h.Ctx.Request.Context(), key, string(msgBytes), 3*30*24*time.Hour).Err()
+	if err != nil {
+		logger.Error("[createAPIHandler-Process] write to redis failed: err=%v", err)
+		return err
+	}
+
+	err = storage.RedisClient.SAdd(h.Ctx.Request.Context(), constdef.AllAPIConfigID, h.APIConfig.ID).Err()
+	if err != nil {
+		logger.Error("[createAPIHandler-Process] save api_id to redis set failed: err=%v", err)
+		return err
+	}
+
 	return
 }
 
@@ -268,4 +244,62 @@ func (h *createAPIHandler) Notify() (err error) {
 			i+1, constdef.UpdateGatewayRoute, "by create api")
 	}
 	return
+}
+
+func (h *createAPIHandler) packAPIConfig() {
+	h.APIConfig = &dal.APIGatewayConfig{
+		Pattern:           h.Params.Pattern,
+		Method:            h.Params.Method,
+		APIName:           h.Params.APIName,
+		TargetMode:        h.Params.TargetMode,
+		TargetTimeout:     h.Params.TargetTimeout,
+		TargetStripPrefix: h.Params.TargetStripPrefix,
+		MaxQPS:            h.Params.MaxQPS,
+		Auth:              h.Params.Auth,
+		Status:            1,
+		Description:       h.Params.Description,
+	}
+	if h.Params.TargetMode == constdef.DefaultTargetMode {
+		h.APIConfig.TargetHost = h.TargetURL.Host
+		h.APIConfig.TargetScheme = h.TargetURL.Scheme
+		h.APIConfig.TargetPath = h.TargetURL.Path
+	} else if h.Params.TargetMode == constdef.ConsulTargetMode {
+		h.APIConfig.TargetLb = h.Params.TargetLb
+		h.APIConfig.TargetServiceName = h.Params.TargetServiceName
+	}
+	ipBlackList := make([]string, 0)
+	for _, ip := range h.IPBlackList {
+		ipBlackList = append(ipBlackList, ip.To4().String())
+	}
+	if len(ipBlackList) > 0 {
+		h.APIConfig.IPBlackList = strings.Join(ipBlackList, ",")
+	}
+	ipWhiteList := make([]string, 0)
+	for _, ip := range h.IPWhiteList {
+		ipWhiteList = append(ipWhiteList, ip.To4().String())
+	}
+	if len(ipWhiteList) > 0 {
+		h.APIConfig.IPWhiteList = strings.Join(ipWhiteList, ",")
+	}
+}
+
+func (h *createAPIHandler) packAPIConfigHistory() {
+	h.APIConfigHistory = &dal.APIGatewayConfigHistory{
+		APIID:             h.APIConfig.ID,
+		Pattern:           h.APIConfig.Pattern,
+		Method:            h.APIConfig.Method,
+		APIName:           h.APIConfig.APIName,
+		TargetMode:        h.APIConfig.TargetMode,
+		TargetHost:        h.APIConfig.TargetHost,
+		TargetScheme:      h.APIConfig.TargetScheme,
+		TargetPath:        h.APIConfig.TargetPath,
+		TargetServiceName: h.APIConfig.TargetServiceName,
+		TargetStripPrefix: h.APIConfig.TargetStripPrefix,
+		TargetLb:          h.APIConfig.TargetLb,
+		MaxQPS:            h.APIConfig.MaxQPS,
+		Auth:              h.APIConfig.Auth,
+		IPWhiteList:       h.APIConfig.IPWhiteList,
+		IPBlackList:       h.APIConfig.IPBlackList,
+		Description:       h.APIConfig.Description,
+	}
 }

@@ -11,10 +11,13 @@ func registerRouter(r *gin.Engine) {
 	r.GET("/ping", Ping)
 	// your code
 
-	r.POST("/gateway-admin/create_api", resp.JSONOutPutWrapper(handler.CreateAPI))
-	r.POST("/gateway-admin/update_api", resp.JSONOutPutWrapper(handler.UpdateAPI))
-	r.GET("/gateway-admin/delete_api", resp.JSONOutPutWrapper(handler.DeleteAPI))
-	// r.GET("/gateway-admin/get_api")
+	apiRouter := r.Group("/gateway/api")
+	{
+		apiRouter.POST("/create", resp.JSONOutPutWrapper(handler.CreateAPI))
+		apiRouter.POST("/update", resp.JSONOutPutWrapper(handler.UpdateAPI))
+		apiRouter.GET("/delete", resp.JSONOutPutWrapper(handler.DeleteAPI))
+		apiRouter.GET("/search", resp.JSONOutPutWrapper(handler.CreateAPI))
+	}
 
 	r.GET("/gateway-admin/internal/get_token", resp.JSONOutPutWrapper(handler.GetToken))
 }

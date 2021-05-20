@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/Walker-PI/gateway-admin/pkg/logger"
+	"github.com/Walker-PI/gateway-admin/pkg/storage"
 	"gorm.io/gorm"
 )
 
@@ -68,6 +69,17 @@ func GetAPIConfigByID(db *gorm.DB, id int64) (apiConfig *APIGatewayConfig, err e
 	}
 	if len(apiConfigList) > 0 {
 		apiConfig = apiConfigList[0]
+	}
+	return
+}
+
+func GetAllAPIConfig() (apiConfigList []*APIGatewayConfig, err error) {
+	apiConfigList = make([]*APIGatewayConfig, 0)
+	dbRes := storage.MysqlClient.Debug().Model(&APIGatewayConfig{}).Where("status = 1").Find(&apiConfigList)
+	if dbRes.Error != nil {
+		err = dbRes.Error
+		logger.Error("[GetAPIConfigByID] get api failed: err=%v", err)
+		return
 	}
 	return
 }

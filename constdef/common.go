@@ -28,3 +28,9 @@ const (
 const (
 	UpdateGatewayRoute = "update-gateway-route"
 )
+
+// Redis key
+const (
+	AllAPIConfigID  = "all-api-config-id"
+	APIConfigKeyFmt = "api-config:api_id:%d"
+)

@@ -60,10 +60,31 @@ func (h *deleteAPIHandler) CheckParams() (err error) {
 }
 
 func (h *deleteAPIHandler) Process() (err error) {
-	err = dal.DeleteAPI(storage.MysqlClient, h.Params.APIID)
+
+	// 开启数据库事务，只有下列操作全部通过，才往数据库里写
+	db := storage.MysqlClient.Begin()
+	defer func() {
+		if err != nil {
+			logger.Error("[deleteAPIHandler-Process] delete api failed: err=%v", err)
+			db.Rollback()
+		} else {
+			db.Commit()
+			logger.Info("[deletePIHandler-Process] delete api succeed")
+		}
+	}()
+
+	err = dal.DeleteAPI(db, h.Params.APIID)
 	if err != nil {
+		logger.Error("[deleteAPIHandler] delete api failed: err=%v", err)
 		return err
 	}
+
+	err = storage.RedisClient.SRem(h.Ctx.Request.Context(), constdef.AllAPIConfigID, h.Params.APIID).Err()
+	if err != nil {
+		logger.Error("[deleteAPIHandler-Process] delete api_id from redis set failed: err=%v", err)
+		return err
+	}
+
 	return
 }
 

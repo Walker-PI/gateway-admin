@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -38,11 +39,13 @@ type UpdateAPIParams struct {
 }
 
 type updateAPIHandler struct {
-	Ctx         *gin.Context
-	Params      UpdateAPIParams
-	TargetURL   *url.URL
-	IPWhiteList []net.IP
-	IPBlackList []net.IP
+	Ctx              *gin.Context
+	Params           UpdateAPIParams
+	TargetURL        *url.URL
+	IPWhiteList      []net.IP
+	IPBlackList      []net.IP
+	APIConfig        *dal.APIGatewayConfig
+	APIConfigHistory *dal.APIGatewayConfigHistory
 }
 
 func buildUpdateAPIHandler(c *gin.Context) *updateAPIHandler {
@@ -154,99 +157,51 @@ func (h *updateAPIHandler) CheckParams() (err error) {
 
 func (h *updateAPIHandler) Process() (err error) {
 
-	apiConfig, err := dal.GetAPIConfigByID(storage.MysqlClient, h.Params.APIID)
+	h.APIConfig, err = dal.GetAPIConfigByID(storage.MysqlClient, h.Params.APIID)
 	if err != nil {
 		return err
 	}
-	if apiConfig == nil {
+	if h.APIConfig == nil {
 		logger.Warn("[updateAPIHandler-Process] api_id is invalid: api_id=%v", h.Params.APIID)
 		return fmt.Errorf("api_id is not exsit")
 	}
-	if h.Params.Pattern != "" {
-		apiConfig.Pattern = h.Params.Pattern
-	}
-	if h.Params.Method != "" {
-		apiConfig.Method = h.Params.Method
-	}
-	if h.Params.APIName != "" {
-		apiConfig.APIName = h.Params.APIName
-	}
-	if h.Params.MaxQPS != 0 {
-		apiConfig.MaxQPS = h.Params.MaxQPS
-	}
-	if h.Params.Auth != "" {
-		apiConfig.Auth = h.Params.Auth
-	}
-	if h.Params.Description != "" {
-		apiConfig.Description = h.Params.Description
-	}
-	if h.Params.TargetStripPrefix > 0 {
-		apiConfig.TargetStripPrefix = h.Params.TargetStripPrefix
-	}
-	if h.Params.TargetMode == constdef.DefaultTargetMode {
-		apiConfig.TargetHost = h.TargetURL.Host
-		apiConfig.TargetScheme = h.TargetURL.Scheme
-		apiConfig.TargetPath = h.TargetURL.Path
-		apiConfig.TargetLb = ""
-		apiConfig.TargetServiceName = ""
-	} else if h.Params.TargetMode == constdef.ConsulTargetMode {
-		apiConfig.TargetLb = h.Params.TargetLb
-		apiConfig.TargetServiceName = h.Params.TargetServiceName
-		apiConfig.TargetHost = ""
-		apiConfig.TargetScheme = ""
-		apiConfig.TargetPath = ""
-	}
-	ipBlackList := make([]string, 0)
-	for _, ip := range h.IPBlackList {
-		ipBlackList = append(ipBlackList, ip.To4().String())
-	}
-	if len(ipBlackList) > 0 {
-		apiConfig.IPBlackList = strings.Join(ipBlackList, ",")
-	}
-	ipWhiteList := make([]string, 0)
-	for _, ip := range h.IPWhiteList {
-		ipWhiteList = append(ipWhiteList, ip.To4().String())
-	}
-	if len(ipWhiteList) > 0 {
-		apiConfig.IPWhiteList = strings.Join(ipWhiteList, ",")
-	}
-	apiConfig.ModifiedTime = time.Time{}
 
 	// 开启数据库事务，只有下列操作全部通过，才往数据库里写
 	db := storage.MysqlClient.Begin()
 	defer func() {
 		if err != nil {
+			logger.Error("[updateAPIHandler-Process] update api failed: err=%v", err)
 			db.Rollback()
 		} else {
 			db.Commit()
+			logger.Info("[updatePIHandler-Process] update api succeed")
 		}
 	}()
 
-	err = dal.UpdateAPI(db, h.Params.APIID, apiConfig)
+	h.packAPIConfig()
+	err = dal.UpdateAPI(db, h.Params.APIID, h.APIConfig)
 	if err != nil {
+		logger.Error("[updateAPIHandler-Process] update a api failed: err=%v", err)
 		return err
 	}
 
-	apiConfigHistory := &dal.APIGatewayConfigHistory{
-		APIID:             apiConfig.ID,
-		Pattern:           apiConfig.Pattern,
-		Method:            apiConfig.Method,
-		APIName:           apiConfig.APIName,
-		TargetMode:        apiConfig.TargetMode,
-		TargetHost:        apiConfig.TargetHost,
-		TargetScheme:      apiConfig.TargetScheme,
-		TargetPath:        apiConfig.TargetPath,
-		TargetServiceName: apiConfig.TargetServiceName,
-		TargetLb:          apiConfig.TargetLb,
-		MaxQPS:            apiConfig.MaxQPS,
-		Auth:              apiConfig.Auth,
-		IPWhiteList:       apiConfig.IPWhiteList,
-		IPBlackList:       apiConfig.IPBlackList,
-		Description:       apiConfig.Description,
+	h.packAPIConfigHistory()
+	err = dal.CreateAPIHistory(db, h.APIConfigHistory)
+	if err != nil {
+		logger.Error("[updateAPIHandler-Process] update a api history failed: err=%v", err)
+		return err
 	}
 
-	err = dal.CreateAPIHistory(db, apiConfigHistory)
+	// APIConfig: Write to Redis
+	msgBytes, err := json.Marshal(h.APIConfig)
 	if err != nil {
+		logger.Error("[updateAPIHandler-Process] marshal failed: err=%v", err)
+		return err
+	}
+	key := fmt.Sprintf(constdef.APIConfigKeyFmt, h.APIConfig.ID)
+	err = storage.RedisClient.Set(h.Ctx.Request.Context(), key, string(msgBytes), 3*30*24*time.Hour).Err()
+	if err != nil {
+		logger.Error("[updateAPIHandler-Process] write to redis failed: err=%v", err)
 		return err
 	}
 	return nil
@@ -263,4 +218,76 @@ func (h *updateAPIHandler) Notify() (err error) {
 			i+1, constdef.UpdateGatewayRoute, "by update api")
 	}
 	return
+}
+
+func (h *updateAPIHandler) packAPIConfig() {
+	if h.Params.Pattern != "" {
+		h.APIConfig.Pattern = h.Params.Pattern
+	}
+	if h.Params.Method != "" {
+		h.APIConfig.Method = h.Params.Method
+	}
+	if h.Params.APIName != "" {
+		h.APIConfig.APIName = h.Params.APIName
+	}
+	if h.Params.MaxQPS != 0 {
+		h.APIConfig.MaxQPS = h.Params.MaxQPS
+	}
+	if h.Params.Auth != "" {
+		h.APIConfig.Auth = h.Params.Auth
+	}
+	if h.Params.Description != "" {
+		h.APIConfig.Description = h.Params.Description
+	}
+	if h.Params.TargetStripPrefix > 0 {
+		h.APIConfig.TargetStripPrefix = h.Params.TargetStripPrefix
+	}
+	if h.Params.TargetMode == constdef.DefaultTargetMode {
+		h.APIConfig.TargetHost = h.TargetURL.Host
+		h.APIConfig.TargetScheme = h.TargetURL.Scheme
+		h.APIConfig.TargetPath = h.TargetURL.Path
+		h.APIConfig.TargetLb = ""
+		h.APIConfig.TargetServiceName = ""
+	} else if h.Params.TargetMode == constdef.ConsulTargetMode {
+		h.APIConfig.TargetLb = h.Params.TargetLb
+		h.APIConfig.TargetServiceName = h.Params.TargetServiceName
+		h.APIConfig.TargetHost = ""
+		h.APIConfig.TargetScheme = ""
+		h.APIConfig.TargetPath = ""
+	}
+	ipBlackList := make([]string, 0)
+	for _, ip := range h.IPBlackList {
+		ipBlackList = append(ipBlackList, ip.To4().String())
+	}
+	if len(ipBlackList) > 0 {
+		h.APIConfig.IPBlackList = strings.Join(ipBlackList, ",")
+	}
+	ipWhiteList := make([]string, 0)
+	for _, ip := range h.IPWhiteList {
+		ipWhiteList = append(ipWhiteList, ip.To4().String())
+	}
+	if len(ipWhiteList) > 0 {
+		h.APIConfig.IPWhiteList = strings.Join(ipWhiteList, ",")
+	}
+	h.APIConfig.ModifiedTime = time.Time{}
+}
+
+func (h *updateAPIHandler) packAPIConfigHistory() {
+	h.APIConfigHistory = &dal.APIGatewayConfigHistory{
+		APIID:             h.APIConfig.ID,
+		Pattern:           h.APIConfig.Pattern,
+		Method:            h.APIConfig.Method,
+		APIName:           h.APIConfig.APIName,
+		TargetMode:        h.APIConfig.TargetMode,
+		TargetHost:        h.APIConfig.TargetHost,
+		TargetScheme:      h.APIConfig.TargetScheme,
+		TargetPath:        h.APIConfig.TargetPath,
+		TargetServiceName: h.APIConfig.TargetServiceName,
+		TargetLb:          h.APIConfig.TargetLb,
+		MaxQPS:            h.APIConfig.MaxQPS,
+		Auth:              h.APIConfig.Auth,
+		IPWhiteList:       h.APIConfig.IPWhiteList,
+		IPBlackList:       h.APIConfig.IPBlackList,
+		Description:       h.APIConfig.Description,
+	}
 }

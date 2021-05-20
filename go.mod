@@ -6,6 +6,7 @@ require (
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/gin-contrib/zap v0.0.1
 	github.com/gin-gonic/gin v1.7.1
+	github.com/go-co-op/gocron v1.5.0
 	github.com/go-ini/ini v1.62.0
 	github.com/go-redis/redis/v8 v8.8.2
 	github.com/natefinch/lumberjack v2.0.0+incompatible
