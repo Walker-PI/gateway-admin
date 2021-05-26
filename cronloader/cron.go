@@ -12,7 +12,7 @@ func InitCronLoader() {
 	scheduler.TagsUnique()
 
 	// your code ...
-	scheduler.Every(10).Seconds().Tag("update_route_expiration").Do(updateRouteConfigExpiration)
+	_, _ = scheduler.Every(10).Seconds().Tag("update_route_expiration").Do(updateRouteConfigExpiration)
 
 	scheduler.StartAsync()
 	scheduler.StartBlocking()

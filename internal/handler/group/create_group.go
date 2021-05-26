@@ -28,13 +28,13 @@ var sourceMap = map[string]bool{
 	constdef.SourceEdgex: true,
 }
 
-func NewCreateGroupHandler(c *gin.Context) *createGroupHandler {
+func buildCreateGroupHandler(c *gin.Context) *createGroupHandler {
 	return &createGroupHandler{
 		Ctx: c,
 	}
 }
 
-// @CreateGroup 创建路由分组
+// CreateGroup 创建路由分组
 // @Description 创建路由分组接口
 // @Accept application/json
 // @Produce application/json
@@ -42,7 +42,7 @@ func NewCreateGroupHandler(c *gin.Context) *createGroupHandler {
 // @Success 200 {object} model.CommonResponse
 // @Router /gateway-admin/route/create_group [post]
 func CreateGroup(c *gin.Context) (out *resp.JSONOutput) {
-	h := NewCreateGroupHandler(c)
+	h := buildCreateGroupHandler(c)
 	err := h.CheckParams()
 	if err != nil {
 		return resp.SampleJSON(c, resp.RespCodeParamsError, false)

@@ -82,7 +82,7 @@ func buildCreateRouteHandler(c *gin.Context) *createRouteHandler {
 	}
 }
 
-// @CreateRoute 创建API
+// CreateRoute 创建API
 // @Description 创建API的接口
 // @Accept application/json
 // @Produce application/json

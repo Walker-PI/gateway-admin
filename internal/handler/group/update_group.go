@@ -23,13 +23,13 @@ type updateGroupHandler struct {
 	Params UpdateGroupParams
 }
 
-func NewUpdateGroupHandler(c *gin.Context) *updateGroupHandler {
+func buildUpdateGroupHandler(c *gin.Context) *updateGroupHandler {
 	return &updateGroupHandler{
 		Ctx: c,
 	}
 }
 
-// @UpdateGroup 修改路由分组
+// UpdateGroup 修改路由分组
 // @Description 修改路由分组接口
 // @Accept application/json
 // @Produce application/json
@@ -37,7 +37,7 @@ func NewUpdateGroupHandler(c *gin.Context) *updateGroupHandler {
 // @Success 200 {object} model.CommonResponse
 // @Router /gateway-admin/route/update_group [post]
 func UpdateGroup(c *gin.Context) (out *resp.JSONOutput) {
-	h := NewUpdateGroupHandler(c)
+	h := buildUpdateGroupHandler(c)
 	err := h.CheckParams()
 	if err != nil {
 		return resp.SampleJSON(c, resp.RespCodeParamsError, false)
@@ -50,8 +50,7 @@ func UpdateGroup(c *gin.Context) (out *resp.JSONOutput) {
 }
 
 func (h *updateGroupHandler) CheckParams() error {
-	var err error
-	err = h.Ctx.Bind(&h.Params)
+	err := h.Ctx.Bind(&h.Params)
 	if err != nil {
 		logger.Error("[updateGroupHandler-CheckParams] params-err: err=%v", err)
 		return err
