@@ -18,12 +18,6 @@ const (
 	AuthJWT = "JWT"
 )
 
-// Target Mode
-const (
-	DefaultTargetMode int32 = 1
-	ConsulTargetMode  int32 = 2
-)
-
 // Redis Pub channel
 const (
 	UpdateGatewayRoute = "update-gateway-route"
@@ -31,6 +25,18 @@ const (
 
 // Redis key
 const (
-	AllAPIConfigID  = "all-api-config-id"
-	APIConfigKeyFmt = "api-config:api_id:%d"
+	AllRouteConfigIDFmt = "all-route-config-id:source:%s"
+	RouteConfigKeyFmt   = "route-config:api_id:%d:source:%s"
+)
+
+// source
+const (
+	SourceCloud = "CLOUD"
+	SourceEdgex = "EDGEX"
+)
+
+// Discovery
+const (
+	DiscoveryEureka = "EUREKA"
+	DiscoveryConsul = "CONSUL"
 )

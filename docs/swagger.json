@@ -1,0 +1,124 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "contact": {}
+    },
+    "paths": {
+        "/gateway-admin/api/create": {
+            "post": {
+                "description": "创建API的接口",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "parameters": [
+                    {
+                        "description": "请求body",
+                        "name": "object",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.CreateAPIParams"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handler._StdResponse"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "handler.CreateAPIParams": {
+            "type": "object",
+            "required": [
+                "api_name",
+                "method",
+                "pattern",
+                "target_mode"
+            ],
+            "properties": {
+                "api_name": {
+                    "description": "API名字",
+                    "type": "string"
+                },
+                "auth": {
+                    "description": "鉴权类型",
+                    "type": "string"
+                },
+                "description": {
+                    "description": "描述",
+                    "type": "string"
+                },
+                "ip_black_list": {
+                    "description": "IP黑名单",
+                    "type": "string"
+                },
+                "ip_white_list": {
+                    "description": "IP白名单",
+                    "type": "string"
+                },
+                "max_qps": {
+                    "description": "限流，最大QPS",
+                    "type": "integer"
+                },
+                "method": {
+                    "description": "Method",
+                    "type": "string"
+                },
+                "pattern": {
+                    "description": "Pattern",
+                    "type": "string"
+                },
+                "target_lb": {
+                    "description": "负载均衡类型",
+                    "type": "string"
+                },
+                "target_mode": {
+                    "description": "API转发模式",
+                    "type": "integer"
+                },
+                "target_service_name": {
+                    "description": "目标服务名",
+                    "type": "string"
+                },
+                "target_strip_prefix": {
+                    "description": "是否去掉Pattern前缀",
+                    "type": "integer"
+                },
+                "target_timeout": {
+                    "description": "目标服务超市时间",
+                    "type": "integer"
+                },
+                "target_url": {
+                    "description": "目标URL",
+                    "type": "string"
+                }
+            }
+        },
+        "handler._StdResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "prompts": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "integer"
+                }
+            }
+        }
+    }
+}

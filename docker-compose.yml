@@ -1,0 +1,12 @@
+version: '3.7'
+
+services:            
+    gateway-admin:
+        build:
+            context: ./
+            dockerfile: Dockerfile
+        image: gateway-admin:latest
+        container_name: gateway_admin
+        ports:
+            - 9000:9000/tcp
+        restart: always
