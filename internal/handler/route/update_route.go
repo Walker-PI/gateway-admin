@@ -1,16 +1,20 @@
 package route
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
 	"net/url"
 	"path"
 	"strings"
+	"time"
 
+	"github.com/Walker-PI/gateway-admin/constdef"
 	"github.com/Walker-PI/gateway-admin/internal/dal"
 	"github.com/Walker-PI/gateway-admin/pkg/logger"
 	"github.com/Walker-PI/gateway-admin/pkg/resp"
+	"github.com/Walker-PI/gateway-admin/pkg/storage"
 	"github.com/Walker-PI/gateway-admin/pkg/tools"
 	"github.com/gin-gonic/gin"
 )
@@ -60,7 +64,12 @@ func UpdateRoute(c *gin.Context) (out *resp.JSONOutput) {
 		return resp.SampleJSON(c, resp.RespDatabaseError, false)
 	}
 
-	return
+	err = h.Process()
+	if err != nil {
+		return resp.SampleJSON(c, resp.RespDatabaseError, false)
+	}
+
+	return resp.SampleJSON(c, resp.RespCodeSuccess, true)
 }
 
 func (h *updateRouteHandler) CheckParams() (err error) {
@@ -155,5 +164,88 @@ func (h *updateRouteHandler) GetRouteConfig() (err error) {
 
 func (h *updateRouteHandler) Process() (err error) {
 
+	// 开启数据库事务，只有下列操作全部通过，才往数据库里写
+	db := storage.MysqlClient.Begin()
+	defer func() {
+		if err != nil {
+			logger.Error("[updateRouteHandler-Process] update routeConfig failed: err=%v", err)
+			db.Rollback()
+		} else {
+			db.Commit()
+			logger.Info("[updateRouteHandler-Process] update routeConfig succeed")
+		}
+	}()
+
+	// RouteConfig: Write to Mysql
+	h.packRouteConfig()
+	err = dal.UpdateRouteConfig(db, h.RouteConfig.ID, h.RouteConfig)
+	if err != nil {
+		logger.Error("[updateRouteHandler-Process] update routeConfig failed: err=%v", err)
+		return err
+	}
+
+	// 增加路由配置id到redis集合
+	key := fmt.Sprintf(constdef.AllRouteConfigIDFmt, h.RouteConfig.Source)
+	err = storage.RedisClient.SAdd(h.Ctx.Request.Context(), key, h.RouteConfig.ID).Err()
+	if err != nil {
+		logger.Error("[updateRouteHandler-Process] save route_id to redis set failed: err=%v", err)
+		return err
+	}
+
+	// RouteConfig: Write to Redis
+	msgBytes, err := json.Marshal(h.RouteConfig)
+	if err != nil {
+		logger.Error("[updateRouteHandler-Process] marshal failed: err=%v", err)
+		return err
+	}
+	key = fmt.Sprintf(constdef.RouteConfigKeyFmt, h.RouteConfig.ID, h.RouteConfig.Source)
+	err = storage.RedisClient.Set(h.Ctx.Request.Context(), key, string(msgBytes), 3*30*24*time.Hour).Err()
+	if err != nil {
+		logger.Error("[updateRouteHandler-Process] write to redis failed: err=%v", err)
+		return err
+	}
 	return
+}
+
+func (h *updateRouteHandler) packRouteConfig() {
+	if h.Params.Methods != "" {
+		h.RouteConfig.Methods = h.Params.Methods
+	}
+	if h.Params.Pattern != "" {
+		h.RouteConfig.Pattern = h.Params.Pattern
+	}
+
+	if h.Params.IPBlackList != "" {
+		h.RouteConfig.IPBlackList = h.Params.IPBlackList
+	}
+	if h.Params.IPWhiteList != "" {
+		h.RouteConfig.IPWhiteList = h.Params.IPWhiteList
+	}
+	if h.Params.RateLimit > 0 {
+		h.RouteConfig.RateLimit = h.Params.RateLimit
+	}
+
+	if h.Params.TargetTimeout > 0 {
+		h.RouteConfig.TargetTimeout = h.Params.TargetTimeout
+	}
+
+	if h.Params.AuthType != "" {
+		h.RouteConfig.AuthType = h.Params.AuthType
+	}
+
+	if h.Params.Discovery == "" && h.Params.TargetURL != "" {
+		h.RouteConfig.Discovery = h.Params.Discovery
+		h.RouteConfig.TargetURL = h.Params.TargetURL
+		h.RouteConfig.DiscoveryServiceName = ""
+		h.RouteConfig.DiscoveryPath = ""
+		h.RouteConfig.DiscoveryLoadBalance = ""
+	}
+
+	if h.Params.Discovery != "" {
+		h.RouteConfig.TargetURL = ""
+		h.RouteConfig.Discovery = h.Params.Discovery
+		h.RouteConfig.DiscoveryPath = h.Params.DiscoveryPath
+		h.RouteConfig.DiscoveryServiceName = h.Params.DiscoveryServiceName
+		h.RouteConfig.DiscoveryLoadBalance = h.Params.DiscoveryLoadBalance
+	}
 }

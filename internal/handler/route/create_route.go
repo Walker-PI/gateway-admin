@@ -215,11 +215,11 @@ func (h *createRouteHandler) Process() (err error) {
 	db := storage.MysqlClient.Begin()
 	defer func() {
 		if err != nil {
-			logger.Error("[createRouteHandler-Process] create api failed: err=%v", err)
+			logger.Error("[createRouteHandler-Process] create routeConfig failed: err=%v", err)
 			db.Rollback()
 		} else {
 			db.Commit()
-			logger.Info("[createRouteHandler-Process] create api succeed")
+			logger.Info("[createRouteHandler-Process] create routeConfig succeed")
 		}
 	}()
 

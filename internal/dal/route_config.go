@@ -52,3 +52,21 @@ func GetRouteConfigByID(routeID int64) (routeConfig *RouteConfig, err error) {
 	}
 	return
 }
+
+func UpdateRouteConfig(db *gorm.DB, routeID int64, routeConfig *RouteConfig) error {
+	db = db.Debug().Model(RouteConfig{}).Where("id = ?", routeID).Updates(routeConfig)
+	if db.Error != nil {
+		logger.Error("[UpdateRouteConfig] failed: err=%v", db.Error)
+		return db.Error
+	}
+	return nil
+}
+
+func DeleteRouteConfig(db *gorm.DB, routeID int64) error {
+	db = db.Debug().Model(RouteConfig{}).Delete("id = ?", routeID)
+	if db.Error != nil {
+		logger.Error("[DeleteRouteConfig] failed: err=%v", db.Error)
+		return db.Error
+	}
+	return nil
+}
